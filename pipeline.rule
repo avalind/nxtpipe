@@ -1,0 +1,65 @@
+samples = ["JK1_S17", "JK2_S18", "JK3_S19", "JK4_S20", "JK5_S21"]
+refpath = "/sw/data/uppnex/reference/Homo_sapiens/hg19/program_files/bwa/concat.fa"
+
+rule main:
+	input:
+		expand("{sample_name}_aligned_sorted.bam.bai", sample_name=samples)
+
+rule trim_reads:
+	input:
+		expand("{{sample_name}}_R{read_pair_id}_001.fastq.gz", read_pair_id=["1","2"])
+	output:
+		expand("trimmed/{{sample_name}}_R{read_pair_id}_001_val_{read_pair_id}.fq.gz",
+			read_pair_id=["1","2"])
+	params:
+		time="0:30:00"
+	shell:
+		"""
+		module load bioinfo-tools TrimGalore
+		trim_galore --nextera --fastqc -o trimmed/ --paired {input}
+		"""
+
+rule bwa_map:
+	input:
+		expand("trimmed/{{sample_name}}_R{read_pair_id}_001_val_{read_pair_id}.fq.gz",
+			read_pair_id=["1", "2"])
+	output:
+		"{sample_name}_aligned.bam"
+	params:
+		time="1:00:00",
+		ref = refpath
+	log:
+		"{sample_name}_bwa_log"
+	shell:
+		"""
+		module load bioinfo-tools bwa samtools
+		bwa mem -M {params.ref} {input[0]} {input[1]} 2> {log} |
+		samtools view -Sb - > {output}
+		"""
+		
+rule sort:
+	input:
+		"{sample_name}_aligned.bam"
+	output:
+		"{sample_name}_aligned_sorted.bam"
+	params:
+		time="0:15:00"
+	shell:
+		"""
+		module load bioinfo-tools samtools
+		samtools sort {input} > {output}
+		"""
+
+
+rule index:
+	input:
+		"{sample_name}_aligned_sorted.bam"
+	output:
+		"{sample_name}_aligned_sorted.bam.bai"
+	params:
+		time="0:15:00"
+	shell:
+		"""
+		module load bioinfo-tools samtools
+		samtools index {input}
+		"""	
