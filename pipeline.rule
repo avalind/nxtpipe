@@ -78,7 +78,7 @@ rule add_readgroups:
 		barcode_id = "amp",
 	shell:
 		"""
-		module load java picard/2.10.3
+		module load bioinfo-tools picard/2.10.3
 		java -jar $PICARD_HOME/picard.jar AddOrReplaceReadGroups \
 		SORT_ORDER=coordinate \
 		CREATE_INDEX=true \
