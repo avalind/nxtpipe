@@ -1,9 +1,10 @@
 samples = ["JK1_S17", "JK2_S18", "JK3_S19", "JK4_S20", "JK5_S21"]
 refpath = "/sw/data/uppnex/reference/Homo_sapiens/hg19/program_files/bwa/concat.fa"
+sites = "mask.bed"
 
 rule main:
 	input:
-		expand("{sample_name}_aligned_sorted.bam.bai", sample_name=samples)
+		expand("{sample_name}_aligned_sorted.bam", sample_name=samples)
 
 rule trim_reads:
 	input:
@@ -37,29 +38,89 @@ rule bwa_map:
 		samtools view -Sb - > {output}
 		"""
 		
-rule sort:
+#rule sort:
+#	input:
+#		"{sample_name}_aligned.bam"
+#	output:
+#		"{sample_name}_aligned_sorted.bam"
+#	params:
+#		time="0:15:00"
+#	shell:
+#		"""
+#		module load bioinfo-tools samtools
+#		samtools sort {input} > {output}
+#		"""
+#
+#
+#rule index:
+#	input:
+#		"{sample_name}_aligned_sorted.bam"
+#	output:
+#		"{sample_name}_aligned_sorted.bam.bai"
+#	params:
+#		time="0:15:00"
+#	shell:
+#		"""
+#		module load bioinfo-tools samtools
+#		samtools index {input}
+#		"""
+
+rule add_readgroups:
 	input:
 		"{sample_name}_aligned.bam"
 	output:
 		"{sample_name}_aligned_sorted.bam"
 	params:
-		time="0:15:00"
+		time="0:15:00",
+		lib_id = "nxt_1",
+		# this is an ugly hack, and the RGID should be FLOWCELL_ID + LANE_ID
+		rgid = "fc1_lane1",
+		barcode_id = "amp",
 	shell:
 		"""
-		module load bioinfo-tools samtools
-		samtools sort {input} > {output}
+		module load java picard/picard/2.10.3
+		java -jar $PICARD_HOME/picard.jar AddOrReplaceReadGroups \
+		SORT_ORDER=coordinate \
+		CREATE_INDEX=true \
+		I={input} \
+		O={output} \
+		RGID={params.rgid} \
+		RGLB={params.lib_id} \
+		RGPU={params.barcode_id} \
+		RGPL=illumina \
+		RGSM={wildcards.sample_name} \
 		"""
 
 
-rule index:
+rule freebayes_genotype:
 	input:
 		"{sample_name}_aligned_sorted.bam"
-	output:
 		"{sample_name}_aligned_sorted.bam.bai"
+	output:
+		"{sample_name}_freebayes_variants.vcf"
 	params:
-		time="0:15:00"
+		time="0:30:00",
+		ref=refpath,
+		targets=sites
 	shell:
 		"""
-		module load bioinfo-tools samtools
-		samtools index {input}
-		"""	
+		module load bioinfo-tools freebayes
+		freebayes \
+		-f {params.ref} \
+		-t {params.targets} \
+		--pooled-continuous \
+		--pooled-discrete \
+		-F 0.03 \
+		-C 2 \
+		{input} > {output}
+		"""
+
+
+rule mutect2_genotype:
+	input:
+		"{sample_name}_aligned_sorted.bam"
+		"{sample_name}_aligned_sorted_bam.bai"
+	output:
+		"{sample_name}_mutect2_variants.vcf"
+	params:
+		
