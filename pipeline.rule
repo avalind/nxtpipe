@@ -116,11 +116,11 @@ rule freebayes_genotype:
 		"""
 
 
-rule mutect2_genotype:
-	input:
-		"{sample_name}_aligned_sorted.bam"
-		"{sample_name}_aligned_sorted_bam.bai"
-	output:
-		"{sample_name}_mutect2_variants.vcf"
-	params:
+#rule mutect2_genotype:
+#	input:
+#		"{sample_name}_aligned_sorted.bam"
+#		"{sample_name}_aligned_sorted_bam.bai"
+#	output:
+#		"{sample_name}_mutect2_variants.vcf"
+#	params:
 		
